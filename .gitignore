@@ -1,0 +1,22 @@
+# --- Terraform directories & local state (never commit) ---
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*.tfvars
+*.tfvars.json
+terraform.tfvars
+tfplan
+.terraformrc
+.terraform.tfstate.lock.info
+
+# Remote-state local state file
+remote-state/terraform.tfstate
+
+# Local env / credentials
+terraform.env
+.env
+*.env
