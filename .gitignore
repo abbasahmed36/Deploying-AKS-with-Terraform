@@ -8,10 +8,12 @@ override.tf
 override.tf.json
 *.tfvars
 *.tfvars.json
-terraform.tfvars
+
+#terraform.tfvars
 tfplan
 .terraformrc
 .terraform.tfstate.lock.info
+.terraform.lock.hcl
 
 # Remote-state local state file
 remote-state/terraform.tfstate

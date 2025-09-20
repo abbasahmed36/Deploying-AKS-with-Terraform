@@ -41,9 +41,16 @@ module "network" {
 
   vnet_name       = "${var.prefix}-vnet"
   vnet_cidr       = var.vnet_cidr
-  aks_subnet_name = "${var.prefix}-snet-aks"
-  aks_subnet_cidr = var.aks_subnet_cidr
-
+   subnets = {
+    system = {
+      name             = "${var.prefix}-snet-aks-system"
+      address_prefixes = [var.system_subnet_cidr]
+    }
+    user = {
+      name             = "${var.prefix}-snet-aks-user"
+      address_prefixes = [var.user_subnet_cidr]
+    }
+  }
   tags = local.tags
 }
 
@@ -94,7 +101,7 @@ module "aks" {
   kubernetes_version  = var.kubernetes_version 
 
   # Networking
-  subnet_id      = module.network.subnet_id
+  subnet_id = module.network.subnet_ids["system"]
   dns_service_ip = var.dns_service_ip
   service_cidr   = var.service_cidr
 
