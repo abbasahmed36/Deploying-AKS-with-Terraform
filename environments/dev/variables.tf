@@ -30,11 +30,15 @@ variable "vnet_cidr" {
 #  default = "10.10.0.0/22"
 #}
 
-variable "system_subnet_cidr" { 
+variable "system_subnet_cidr" {
   type = string
 }
 
-variable "user_subnet_cidr"   { 
+variable "user_subnet_cidr" {
+  type = string
+}
+
+variable "privendpoint_subnet_cidr" {
   type = string
 }
 
@@ -130,4 +134,5 @@ variable "wi_service_account" {
 variable "kv_name" {
   type = string
 }
+
 

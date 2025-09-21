@@ -67,26 +67,32 @@ terraform -chdir=remote-state fmt -recursive
 ## Initialize Remote State and apply 
 
 ```bash
+# init providers
 terraform -chdir=remote-state init
-terraform -chdir=remote-state validate
-terraform -chdir=remote-state apply
-```
-Create the backend config for dev
 
-```bash
-cat > environments/dev/backend.hcl <<'EOF'
-resource_group_name  = "tfstate-rg"
-storage_account_name = "tfstateggn52c"
-container_name       = "tfstate"
-key                  = "aks/dev.tfstate"
-EOF
+# validate config
+terraform -chdir=remote-state validate
+
+# draft a plan
+terraform -chdir=remote-state plan \
+  -var 'location=swedencentral' \
+  -var 'rg_name=tfstate-rg' \
+  -var 'account_name=tfstate54aks' \
+  -var 'container_name=tfstate' \
+  -var 'key=aks/dev.tfstate' \
+  -out remote-state.plan
+
+# apply exactly that plan
+terraform -chdir=remote-state apply remote-state.plan
 ```
 
 ## Dev Environment: Init → Plan → Apply
 
 ```bash
 # Init with remote backend
-terraform -chdir=environments/dev init -backend-config=backend.hcl
+terraform -chdir=environments/dev init \
+  -reconfigure \
+  -backend-config=../../remote-state/backend.hcl
 
 # Format & validate
 terraform -chdir=environments/dev fmt -recursive

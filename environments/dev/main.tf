@@ -39,9 +39,9 @@ module "network" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
-  vnet_name       = "${var.prefix}-vnet"
-  vnet_cidr       = var.vnet_cidr
-   subnets = {
+  vnet_name = "${var.prefix}-vnet"
+  vnet_cidr = var.vnet_cidr
+  subnets = {
     system = {
       name             = "${var.prefix}-snet-aks-system"
       address_prefixes = [var.system_subnet_cidr]
@@ -103,10 +103,10 @@ module "aks" {
   prefix              = var.prefix
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
-  kubernetes_version  = var.kubernetes_version 
+  kubernetes_version  = var.kubernetes_version
 
   # Networking
-  subnet_id = module.network.subnet_ids["system"]
+  subnet_id      = module.network.subnet_ids["system"]
   dns_service_ip = var.dns_service_ip
   service_cidr   = var.service_cidr
 
@@ -128,7 +128,7 @@ module "aks" {
   authorized_ip_ranges = var.authorized_ip_ranges
 
   # Tier & tags
-  sku_tier = var.sku_tier 
+  sku_tier = var.sku_tier
   tags     = local.tags
 }
 
@@ -169,11 +169,11 @@ module "pe_kv" {
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
 
-  subnet_id           = module.network.subnet_ids["privendpoint"]
-  vnet_id             = module.network.vnet_id
+  subnet_id = module.network.subnet_ids["privendpoint"]
+  vnet_id   = module.network.vnet_id
 
-  target_resource_id  = azurerm_key_vault.kv.id
-  subresource_names   = ["vault"]
+  target_resource_id     = module.keyvault.key_vault_id
+  subresource_names      = ["vault"]
   private_dns_zone_names = ["privatelink.vaultcore.azure.net"]
 
   tags = local.tags
@@ -191,13 +191,10 @@ module "pe_acr" {
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
 
-  subnet_id           = module.network.subnet_ids["privendpoint"]
-  vnet_id             = module.network.vnet_id
-
-  target_resource_id  = azurerm_container_registry.acr.id
-  # ACR supports two subresources: control plane "registry" and data plane "registry_data"
+  subnet_id              = module.network.subnet_ids["privendpoint"]
+  vnet_id                = module.network.vnet_id
+  target_resource_id     = module.acr.acr_id
   subresource_names      = ["registry", "registry_data"]
   private_dns_zone_names = ["privatelink.azurecr.io"]
-
-  tags = local.tags
+  tags                   = local.tags
 }

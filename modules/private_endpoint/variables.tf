@@ -15,9 +15,9 @@ variable "subnet_id" {
  type = string
 }
 
-variable "privendpoint_subnet_cidr" {
-  type = string
-}
+#variable "privendpoint_subnet_cidr" {
+#  type = string
+#}
 
 
 # The target resource to expose privately (like  Key Vault ID, ACR ID)

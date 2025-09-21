@@ -2,18 +2,27 @@
 **/.terraform/*
 *.tfstate
 *.tfstate.*
+.terraform.tfstate.lock.info
 crash.log
 crash.*.log
+
+# Override files
 override.tf
 override.tf.json
+
+# Vars (ignore if they may contain secrets; commit *.example instead)
 *.tfvars
 *.tfvars.json
+# terraform.tfvars  # leave ignored unless sanitized
 
-#terraform.tfvars
+# Plans
+*.plan
 tfplan
-.terraformrc
-.terraform.tfstate.lock.info
-.terraform.lock.hcl
+tfplan.out
+
+# Backend config (generated)
+**/backend.hcl
+!**/backend.example.hcl
 
 # Remote-state local state file
 remote-state/terraform.tfstate
@@ -22,3 +31,7 @@ remote-state/terraform.tfstate
 terraform.env
 .env
 *.env
+
+# DO COMMIT provider lockfiles (remove this from ignore if present)
+# .terraform.lock.hcl  <-- ensure this is NOT ignored
+
