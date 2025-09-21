@@ -39,7 +39,12 @@ az account set --subscription "$SUB_ID"
 ```bash
 
 # Create once
-az ad sp create-for-rbac --name "terraform" --skip-assignment --years 2 -o json
+
+az ad sp create-for-rbac \
+  --name "terraform-sp" \
+  --role Contributor \
+  --scopes /subscriptions/$SUB_ID \
+  --sdk-auth
 
 # Save and source before runs
 cat > terraform.env <<'EOF'
@@ -54,10 +59,16 @@ source terraform.env
 az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
 az account set --subscription "$ARM_SUBSCRIPTION_ID"
 ```
-## Initialize Remote State 
+now format the remote state
+
+```bash
+terraform -chdir=remote-state fmt -recursive
+```
+## Initialize Remote State and apply 
 
 ```bash
 terraform -chdir=remote-state init
+terraform -chdir=remote-state validate
 terraform -chdir=remote-state apply
 ```
 Create the backend config for dev
@@ -87,7 +98,7 @@ terraform -chdir=environments/dev plan -out tfplan
 # Apply
 terraform -chdir=environments/dev apply tfplan
 ```
-Destroy if needed:
+Destroy if needed (in the future):
 
 ```bash
 terraform -chdir=environments/dev destroy

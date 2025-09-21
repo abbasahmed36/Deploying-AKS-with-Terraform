@@ -50,6 +50,11 @@ module "network" {
       name             = "${var.prefix}-snet-aks-user"
       address_prefixes = [var.user_subnet_cidr]
     }
+    privendpoint = {
+      name             = "${var.prefix}-snet-aks-system"
+      address_prefixes = [var.privendpoint_subnet_cidr]
+    }
+
   }
   tags = local.tags
 }
@@ -154,4 +159,45 @@ module "monitoring" {
   aks_id              = module.aks.cluster_id
 }
 
+########################################
+# Private Endpoint For key vault
+########################################
 
+module "pe_kv" {
+  source              = "../../modules/private_endpoint"
+  name                = "${var.prefix}-pe-kv"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  subnet_id           = module.network.subnet_ids["privendpoint"]
+  vnet_id             = module.network.vnet_id
+
+  target_resource_id  = azurerm_key_vault.kv.id
+  subresource_names   = ["vault"]
+  private_dns_zone_names = ["privatelink.vaultcore.azure.net"]
+
+  tags = local.tags
+}
+
+########################################
+# Private Endpoint For ACR
+########################################
+
+
+
+module "pe_acr" {
+  source              = "../../modules/private_endpoint"
+  name                = "${var.prefix}-pe-acr"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  subnet_id           = module.network.subnet_ids["privendpoint"]
+  vnet_id             = module.network.vnet_id
+
+  target_resource_id  = azurerm_container_registry.acr.id
+  # ACR supports two subresources: control plane "registry" and data plane "registry_data"
+  subresource_names      = ["registry", "registry_data"]
+  private_dns_zone_names = ["privatelink.azurecr.io"]
+
+  tags = local.tags
+}
