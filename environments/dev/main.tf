@@ -39,11 +39,23 @@ module "network" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
-  vnet_name       = "${var.prefix}-vnet"
-  vnet_cidr       = var.vnet_cidr
-  aks_subnet_name = "${var.prefix}-snet-aks"
-  aks_subnet_cidr = var.aks_subnet_cidr
+  vnet_name = "${var.prefix}-vnet"
+  vnet_cidr = var.vnet_cidr
+  subnets = {
+    system = {
+      name             = "${var.prefix}-snet-aks-system"
+      address_prefixes = [var.system_subnet_cidr]
+    }
+    user = {
+      name             = "${var.prefix}-snet-aks-user"
+      address_prefixes = [var.user_subnet_cidr]
+    }
+    privendpoint = {
+      name             = "${var.prefix}-snet-aks-privatepoint"
+      address_prefixes = [var.privendpoint_subnet_cidr]
+    }
 
+  }
   tags = local.tags
 }
 
@@ -91,10 +103,10 @@ module "aks" {
   prefix              = var.prefix
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
-  kubernetes_version  = var.kubernetes_version 
+  kubernetes_version  = var.kubernetes_version
 
   # Networking
-  subnet_id      = module.network.subnet_id
+  subnet_id      = module.network.subnet_ids["system"]
   dns_service_ip = var.dns_service_ip
   service_cidr   = var.service_cidr
 
@@ -116,7 +128,7 @@ module "aks" {
   authorized_ip_ranges = var.authorized_ip_ranges
 
   # Tier & tags
-  sku_tier = var.sku_tier 
+  sku_tier = var.sku_tier
   tags     = local.tags
 }
 
@@ -131,7 +143,9 @@ module "keyvault" {
 
   #  create an example secret named "my-secret"
   create_seed_secret = true
-  seed_secret_name   = "my-secret"
+    seed_secret_name = var.seed_secret_name
+
+  #seed_secret_name   = "my-secret"
   # seed_secret_value = "hello-from-kv"
 }
 
@@ -147,4 +161,42 @@ module "monitoring" {
   aks_id              = module.aks.cluster_id
 }
 
+########################################
+# Private Endpoint For key vault
+########################################
 
+module "pe_kv" {
+  source              = "../../modules/private_endpoint"
+  name                = "${var.prefix}-pe-kv"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  subnet_id = module.network.subnet_ids["privendpoint"]
+  vnet_id   = module.network.vnet_id
+
+  target_resource_id     = module.keyvault.key_vault_id
+  subresource_names      = ["vault"]
+  private_dns_zone_names = ["privatelink.vaultcore.azure.net"]
+
+  tags = local.tags
+}
+
+########################################
+# Private Endpoint For ACR
+########################################
+
+
+
+module "pe_acr" {
+  source              = "../../modules/private_endpoint"
+  name                = "${var.prefix}-pe-acr"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  subnet_id              = module.network.subnet_ids["privendpoint"]
+  vnet_id                = module.network.vnet_id
+  target_resource_id     = module.acr.acr_id
+  subresource_names      = ["registry"]
+  private_dns_zone_names = ["privatelink.azurecr.io"]
+  tags                   = local.tags
+}

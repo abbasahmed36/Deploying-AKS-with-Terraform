@@ -25,9 +25,21 @@ variable "vnet_cidr" {
   default = "10.10.0.0/16"
 }
 
-variable "aks_subnet_cidr" {
-  type    = string
-  default = "10.10.0.0/22"
+#variable "aks_subnet_cidr" {
+#  type    = string
+#  default = "10.10.0.0/22"
+#}
+
+variable "system_subnet_cidr" {
+  type = string
+}
+
+variable "user_subnet_cidr" {
+  type = string
+}
+
+variable "privendpoint_subnet_cidr" {
+  type = string
 }
 
 ############################################
@@ -123,3 +135,7 @@ variable "kv_name" {
   type = string
 }
 
+variable "seed_secret_name" {
+  type        = string
+  description = "Forwarded to the keyvault module."
+}
