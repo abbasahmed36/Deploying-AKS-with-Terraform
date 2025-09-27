@@ -1,4 +1,4 @@
-# --- Terraform directories & local state (never commit) ---
+# --- Terraform directories & local state  ---
 **/.terraform/*
 *.tfstate
 *.tfstate.*
@@ -10,10 +10,6 @@ crash.*.log
 override.tf
 override.tf.json
 
-# Vars (ignore if they may contain secrets; commit *.example instead)
-*.tfvars
-*.tfvars.json
-# terraform.tfvars  # leave ignored unless sanitized
 
 # Plans
 *.plan
@@ -24,14 +20,15 @@ tfplan.out
 **/backend.hcl
 !**/backend.example.hcl
 
-# Remote-state local state file
+# Remote-state 
 remote-state/terraform.tfstate
+
+
+
 
 # Local env / credentials
 terraform.env
 .env
 *.env
-
-# DO COMMIT provider lockfiles (remove this from ignore if present)
-# .terraform.lock.hcl  <-- ensure this is NOT ignored
+sp.json
 

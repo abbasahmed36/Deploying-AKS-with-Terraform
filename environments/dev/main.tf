@@ -51,7 +51,7 @@ module "network" {
       address_prefixes = [var.user_subnet_cidr]
     }
     privendpoint = {
-      name             = "${var.prefix}-snet-aks-system"
+      name             = "${var.prefix}-snet-aks-privatepoint"
       address_prefixes = [var.privendpoint_subnet_cidr]
     }
 
@@ -143,7 +143,9 @@ module "keyvault" {
 
   #  create an example secret named "my-secret"
   create_seed_secret = true
-  seed_secret_name   = "my-secret"
+    seed_secret_name = var.seed_secret_name
+
+  #seed_secret_name   = "my-secret"
   # seed_secret_value = "hello-from-kv"
 }
 
@@ -194,7 +196,7 @@ module "pe_acr" {
   subnet_id              = module.network.subnet_ids["privendpoint"]
   vnet_id                = module.network.vnet_id
   target_resource_id     = module.acr.acr_id
-  subresource_names      = ["registry", "registry_data"]
+  subresource_names      = ["registry"]
   private_dns_zone_names = ["privatelink.azurecr.io"]
   tags                   = local.tags
 }

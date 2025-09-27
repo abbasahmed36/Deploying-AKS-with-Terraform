@@ -135,4 +135,7 @@ variable "kv_name" {
   type = string
 }
 
-
+variable "seed_secret_name" {
+  type        = string
+  description = "Forwarded to the keyvault module."
+}

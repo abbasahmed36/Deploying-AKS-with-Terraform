@@ -1,33 +1,49 @@
 # Deploying AKS with Terraform
 
-This repository contains Terraform code to deploy an **Azure Kubernetes Service (AKS)** environment along with supporting resources like ACR, Key Vault, Monitoring, Networking, and Logging.  
-The project follows an **environment-based structure** (`dev`, `test`, etc.) and uses **remote state** for consistency.
+This project provisions an Azure Kubernetes Service (AKS) environment using Terraform, showcasing my hands-on experience with cloud infrastructure, infrastructure as code (IaC), and Kubernetes best practices for real-world scenarios.
+
+**Scope note**: Per project scope, this README intentionally **excludes Governance/Azure Policy and Workload Identity** details. Those can be added later.
+
 
 ---
 
-##  Recommended Versions
+## What Gets Created
 
-- **Terraform CLI**: `>= 1.6.0`
-- **Providers**:
-  - `azurerm`    ~> `4.120` (latest tested: 4.123.0)
-  - `kubernetes` ~> `2.34`
-  - `helm`       ~> `2.14`
-  - `random`     ~> `3.6`
+- **Resource Groups**
+  - `aksbl-rg` (core / AKS)
+  - `aksbl-acr-rg` (container registry)
+  - `aksbl-audit-rg` (Log Analytics / audit)
+- **Networking**
+  - Virtual Network `aksbl-vnet`
+  - Subnets: `aksbl-snet-aks-system`, `aksbl-snet-aks-user`, `aksbl-snet-aks-privatepoint`
+  - Private DNS zones + VNet links:
+    - `privatelink.azurecr.io`
+    - `privatelink.vaultcore.azure.net`
+- **Registries & Secrets**
+  - ACR: `aksblacrl9ekbj` (Premium, admin disabled)
+  - Key Vault: `aksbl-kv-<suffix>` with RBAC, soft‑delete, purge protection, Private Endpoint
+- **AKS**
+  - Cluster: `aksbl-aks` with Azure RBAC
+  - Node pools: default **system** + **user1** (separate subnet)
+  - Diagnostic setting: `AksLogging` to Log Analytics
+- **Observability**
+  - Azure Monitor Workspace: `aksbl-amw`
+  - Data Collection Rule (Prometheus) + association to the cluster
+  - Managed Grafana: `aksbl-amg` with Reader on AMW
+  - Log Analytics workspaces: `aksbl-la` and `aksbl-la-audit`
 
 ---
 
-## 🚀 Getting Started
+## Prerequisites
 
-
-### Prerequisites
-- Azure CLI installed
-- Terraform `>= 1.6`
-- Sufficient Azure permissions (Contributor on target subscription)
+- Azure CLI ≥ 2.50, Terraform ≥ 1.6
+- Azure subscription with permissions to create RGs/resources
+- **Authentication**: run Terraform as a **Service Principal** (recommended) or as a user
 
 
 ### Authenticate
 
-** User login**
+** User login **
 
 ```bash
 az login --use-device-code
@@ -118,84 +134,41 @@ terraform -chdir=environments/dev destroy
 
 An Azure Kubernetes Service RBAC * role (Reader/Writer/Admin/Cluster Admin) at cluster or namespace scope (to do things inside the cluster).
 
-```bash
-WHO="<user-objectId | appId >"
-
-#From repo root:
-TFDIR="environments/dev"
-
-# Fetch values from Terraform outputs
-AKS_NAME=$(terraform -chdir="$TFDIR" output -raw aks_name)
-AKS_RG=$(terraform -chdir="$TFDIR" output -raw aks_rg)
-ACR_LOGIN=$(terraform -chdir="$TFDIR" output -raw acr_login)
-OIDC_ISSUER=$(terraform -chdir="$TFDIR" output -raw oidc_issuer)
-
-echo "AKS: $AKS_NAME"
-echo "RG:  $AKS_RG"
-echo "ACR: $ACR_LOGIN"
-echo "OIDC: $OIDC_ISSUER"
-
-# AKS resource ID
-AKS_ID=$(az aks show -g "$RG" -n "$AKS_NAME" --query id -o tsv)
-```
-
- Cluster-wide admin (full control)
-```bash
-az role assignment create --assignee "$WHO" \
-  --role "Azure Kubernetes Service RBAC Cluster Admin" \
-  --scope "$AKS_ID"
-
-```
-## Connecting to AKS
+Now Get the user creds
 
 ```bash
+az aks get-credentials -g aksbl-rg -n aksbl-aks --overwrite-existing
 
-# Get kubeconfig (no --admin)
-az aks get-credentials -g "$AKS_RG" -n "$AKS_NAME" --overwrite-existing
-
-# Verify
-kubectl cluster-info
-kubectl get nodes -o wide
-
-# Login to ACR (CLI expects registry name, not FQDN)
-ACR_NAME="${ACR_LOGIN%%.*}"
-az acr login -n "$ACR_NAME"
 ```
-## Cluster Profile (Current)
-- **Dataplane:** Cilium (Azure CNI powered by Cilium)
-
-- **Admin accounts:** Disabled (no local cluster admin); Azure RBAC for Kubernetes is enabled
-
-- **Topology:** Single VNet with a single Subnet (nodes + pods share the same subnet)
-
-- **API Server Access:** Public endpoint with IP allowlist (authorized IP ranges)
-
-- **Node Pools:** 1 system pool + 1 user pool
-
-- **Region:** swedencentral
-
-- **AKS SKU:** Free
-
-- **Logging:** Retention 30 days
-
-- **Tags:** { env = "dev" }
-
-- **OIDC Issuer:**  Not yet used (planned for Workload Identity)
-
-See environments/dev/terraform.tfvars for current values.
-Note: If your module requires create_user_pool = true to actually create the user pool, set it accordingly before plan/apply.
-
-## API Server Allowlist (Authorized IP Ranges)
-Configured in terraform.tfvars:
+Ensure your identity has the right roles on the AKS resource
 
 ```bash
-# Public API; whitelist specific clients here
-authorized_ip_ranges = []
-# Example:
-# authorized_ip_ranges = ["203.0.113.45/32", "198.51.100.0/24"]
+AKS_ID=$(az aks show -g aksbl-rg -n aksbl-aks --query id -o tsv)
+
 ```
-To restrict access, set your IP/CIDRs and re-plan/apply.
-If you later switch to a private cluster, remove/ignore this and use private connectivity (VPN/ER/jump host).
+as i am logged in as SP so
+
+```bash
+SP_OBJ_ID=$(az ad sp show --id "$ARM_CLIENT_ID" --query id -o tsv)
+
+# Needed to fetch/use user credentials:
+az role assignment create --assignee-object-id "$SP_OBJ_ID" --assignee-principal-type ServicePrincipal \
+  --role "Azure Kubernetes Service Cluster User Role" --scope "$AKS_ID"
+
+# Give cluster-admin inside Kubernetes (when Azure RBAC is enabled):
+az role assignment create --assignee-object-id "$SP_OBJ_ID" --assignee-principal-type ServicePrincipal \
+  --role "Azure Kubernetes Service RBAC Cluster Admin" --scope "$AKS_ID"
+
+```
+Then convert kubeconfig to use SP login and test:
+```bash
+az aks install-cli
+kubelogin convert-kubeconfig -l spn \
+  --client-id "$ARM_CLIENT_ID" --client-secret "$ARM_CLIENT_SECRET" --tenant-id "$ARM_TENANT_ID"
+
+kubectl get nodes
+
+```
 
 Current environments/dev/terraform.tfvars 
 
@@ -206,9 +179,10 @@ location           = "swedencentral"
 kubernetes_version = null #  AKS pick the latest
 
 # ---- VNet/Subnet for AKS nodes ----
-vnet_cidr       = "10.10.0.0/16"
-aks_subnet_cidr = "10.10.0.0/22"
-
+vnet_cidr                = "10.40.0.0/16" # must contain the subnets below
+system_subnet_cidr       = "10.40.0.0/22"
+user_subnet_cidr         = "10.40.4.0/22"
+privendpoint_subnet_cidr = "10.40.8.0/24"
 # ---- In-cluster networking (must not overlap VNet) ----
 dns_service_ip = "10.2.0.10"
 service_cidr   = "10.2.0.0/24"
@@ -220,9 +194,11 @@ system_vm_size = "Standard_B2s"
 
 system_node_count = 1
 create_user_pool  = true
+#create_user_pool  = true
 #user_vm_size      = "Standard_D2as_v5"
 #user_vm_size = "Standard_DS2_v2"
 user_vm_size = "Standard_B2s"
+
 user_node_count = 1
 
 # ---- API server access (public API case) ----
@@ -243,29 +219,15 @@ wi_namespace       = "app"
 wi_service_account = "api"
 #kv_name            = "my-dev-keyvault"
 kv_name = "aksbl-kv-d8kj03"
+seed_secret_name = "my-secret-v2"
+
 ```
+## Clean Up
 
+```
+terraform -chdir=remote-state destroy
+terraform -chdir=environments/dev destroy
 
-##  Roadmap (Next Update)
-Planned items for the next monthly update:
-
-- Workload Identity
-
-  - Enable OIDC issuer + Workload Identity on AKS
-
-  - Create User-Assigned Managed Identity (UAMI) and Federated Identity Credential (FIC) per workload
-
-  - Use wi_namespace + wi_service_account from vars
-
-- Private Endpoints for Azure resources
-
-  - Add Private Endpoints/Private DNS for Key Vault, ACR, and (if used) Storage
-
-  - Convert to a private AKS API server + private connectivity
-
-- Network segmentation
-
-  - Split single subnet into two subnets: one for system nodes and one for user nodes
-
-  - Update modules/variables to place pools on the correct subnet
-
+# or you can delete resource group forcefully through az cli
+az group delete --name <resourceGroup> --yes --no-wait
+```
