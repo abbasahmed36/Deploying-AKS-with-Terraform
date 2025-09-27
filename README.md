@@ -120,13 +120,6 @@ terraform -chdir=environments/dev plan -out tfplan
 # Apply
 terraform -chdir=environments/dev apply tfplan
 ```
-Destroy if needed (in the future):
-
-```bash
-terraform -chdir=environments/dev destroy
-
-```
-
 
 **Cluster posture:** local accounts disabled and Azure RBAC for Kubernetes enabled.
 
